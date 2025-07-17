@@ -89,6 +89,39 @@ pipeline {
                     if (projectDir && projectDir != '.') {
                         dir(projectDir) {
                             withSonarQubeEnv('SonarQube') {
+                                // Check if test directory exists
+                                def hasTests = fileExists('src/test/java')
+                                if (hasTests) {
+                                    sh '''
+                                        $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                        -Dsonar.projectKey=ecommerce-user-service \
+                                        -Dsonar.projectName="E-commerce User Service" \
+                                        -Dsonar.projectVersion=1.0 \
+                                        -Dsonar.sources=src/main/java \
+                                        -Dsonar.tests=src/test/java \
+                                        -Dsonar.java.binaries=target/classes \
+                                        -Dsonar.java.test.binaries=target/test-classes \
+                                        -Dsonar.junit.reportPaths=target/surefire-reports \
+                                        -Dsonar.jacoco.reportPaths=target/jacoco.exec \
+                                        -Dsonar.java.coveragePlugin=jacoco
+                                    '''
+                                } else {
+                                    echo "No test directory found - analyzing only main source code"
+                                    sh '''
+                                        $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                        -Dsonar.projectKey=ecommerce-user-service \
+                                        -Dsonar.projectName="E-commerce User Service" \
+                                        -Dsonar.projectVersion=1.0 \
+                                        -Dsonar.sources=src/main/java \
+                                        -Dsonar.java.binaries=target/classes
+                                    '''
+                                }
+                            }
+                        }
+                    } else {
+                        withSonarQubeEnv('SonarQube') {
+                            def hasTests = fileExists('src/test/java')
+                            if (hasTests) {
                                 sh '''
                                     $SONAR_SCANNER_HOME/bin/sonar-scanner \
                                     -Dsonar.projectKey=ecommerce-user-service \
@@ -102,23 +135,17 @@ pipeline {
                                     -Dsonar.jacoco.reportPaths=target/jacoco.exec \
                                     -Dsonar.java.coveragePlugin=jacoco
                                 '''
+                            } else {
+                                echo "No test directory found - analyzing only main source code"
+                                sh '''
+                                    $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                    -Dsonar.projectKey=ecommerce-user-service \
+                                    -Dsonar.projectName="E-commerce User Service" \
+                                    -Dsonar.projectVersion=1.0 \
+                                    -Dsonar.sources=src/main/java \
+                                    -Dsonar.java.binaries=target/classes
+                                '''
                             }
-                        }
-                    } else {
-                        withSonarQubeEnv('SonarQube') {
-                            sh '''
-                                $SONAR_SCANNER_HOME/bin/sonar-scanner \
-                                -Dsonar.projectKey=ecommerce-user-service \
-                                -Dsonar.projectName="E-commerce User Service" \
-                                -Dsonar.projectVersion=1.0 \
-                                -Dsonar.sources=src/main/java \
-                                -Dsonar.tests=src/test/java \
-                                -Dsonar.java.binaries=target/classes \
-                                -Dsonar.java.test.binaries=target/test-classes \
-                                -Dsonar.junit.reportPaths=target/surefire-reports \
-                                -Dsonar.jacoco.reportPaths=target/jacoco.exec \
-                                -Dsonar.java.coveragePlugin=jacoco
-                            '''
                         }
                     }
                 }

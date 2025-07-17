@@ -67,10 +67,13 @@ pipeline {
                     script {
                         def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
                         def projectDir = pomLocation.replaceAll('/pom.xml', '')
-                        if (projectDir && projectDir != '.') {
-                            junit "${projectDir}/target/surefire-reports/*.xml"
+                        def testReportsPath = projectDir && projectDir != '.' ? "${projectDir}/target/surefire-reports/*.xml" : 'target/surefire-reports/*.xml'
+                        
+                        // Only process test results if they exist
+                        if (fileExists(testReportsPath.replace('*.xml', ''))) {
+                            junit testReportsPath
                         } else {
-                            junit 'target/surefire-reports/*.xml'
+                            echo "No test reports found - skipping JUnit processing"
                         }
                     }
                 }
@@ -80,20 +83,44 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube analysis...'
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        $SONAR_SCANNER_HOME/bin/sonar-scanner \
-                        -Dsonar.projectKey=ecommerce-user-service \
-                        -Dsonar.projectName="E-commerce User Service" \
-                        -Dsonar.projectVersion=1.0 \
-                        -Dsonar.sources=src/main/java \
-                        -Dsonar.tests=src/test/java \
-                        -Dsonar.java.binaries=target/classes \
-                        -Dsonar.java.test.binaries=target/test-classes \
-                        -Dsonar.junit.reportPaths=target/surefire-reports \
-                        -Dsonar.jacoco.reportPaths=target/jacoco.exec \
-                        -Dsonar.java.coveragePlugin=jacoco
-                    '''
+                script {
+                    def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
+                    def projectDir = pomLocation.replaceAll('/pom.xml', '')
+                    if (projectDir && projectDir != '.') {
+                        dir(projectDir) {
+                            withSonarQubeEnv('SonarQube') {
+                                sh '''
+                                    $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                    -Dsonar.projectKey=ecommerce-user-service \
+                                    -Dsonar.projectName="E-commerce User Service" \
+                                    -Dsonar.projectVersion=1.0 \
+                                    -Dsonar.sources=src/main/java \
+                                    -Dsonar.tests=src/test/java \
+                                    -Dsonar.java.binaries=target/classes \
+                                    -Dsonar.java.test.binaries=target/test-classes \
+                                    -Dsonar.junit.reportPaths=target/surefire-reports \
+                                    -Dsonar.jacoco.reportPaths=target/jacoco.exec \
+                                    -Dsonar.java.coveragePlugin=jacoco
+                                '''
+                            }
+                        }
+                    } else {
+                        withSonarQubeEnv('SonarQube') {
+                            sh '''
+                                $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                -Dsonar.projectKey=ecommerce-user-service \
+                                -Dsonar.projectName="E-commerce User Service" \
+                                -Dsonar.projectVersion=1.0 \
+                                -Dsonar.sources=src/main/java \
+                                -Dsonar.tests=src/test/java \
+                                -Dsonar.java.binaries=target/classes \
+                                -Dsonar.java.test.binaries=target/test-classes \
+                                -Dsonar.junit.reportPaths=target/surefire-reports \
+                                -Dsonar.jacoco.reportPaths=target/jacoco.exec \
+                                -Dsonar.java.coveragePlugin=jacoco
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -110,7 +137,17 @@ pipeline {
         stage('Package') {
             steps {
                 echo 'Packaging the application...'
-                sh 'mvn package -DskipTests'
+                script {
+                    def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
+                    def projectDir = pomLocation.replaceAll('/pom.xml', '')
+                    if (projectDir && projectDir != '.') {
+                        dir(projectDir) {
+                            sh 'mvn package -DskipTests'
+                        }
+                    } else {
+                        sh 'mvn package -DskipTests'
+                    }
+                }
             }
         }
         

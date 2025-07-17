@@ -23,18 +23,56 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building the application...'
-                sh 'mvn clean compile'
+                script {
+                    // Check current directory structure
+                    sh 'ls -la'
+                    sh 'find . -name "pom.xml" -type f'
+                    
+                    // Navigate to the correct directory if needed
+                    def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
+                    if (pomLocation) {
+                        def projectDir = pomLocation.replaceAll('/pom.xml', '')
+                        if (projectDir && projectDir != '.') {
+                            echo "Found pom.xml in: ${projectDir}"
+                            dir(projectDir) {
+                                sh 'mvn clean compile'
+                            }
+                        } else {
+                            sh 'mvn clean compile'
+                        }
+                    } else {
+                        error "No pom.xml found in repository"
+                    }
+                }
             }
         }
         
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'mvn test'
+                script {
+                    def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
+                    def projectDir = pomLocation.replaceAll('/pom.xml', '')
+                    if (projectDir && projectDir != '.') {
+                        dir(projectDir) {
+                            sh 'mvn test'
+                        }
+                    } else {
+                        sh 'mvn test'
+                    }
+                }
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml'
+                    script {
+                        def pomLocation = sh(script: 'find . -name "pom.xml" -type f | head -1', returnStdout: true).trim()
+                        def projectDir = pomLocation.replaceAll('/pom.xml', '')
+                        if (projectDir && projectDir != '.') {
+                            junit "${projectDir}/target/surefire-reports/*.xml"
+                        } else {
+                            junit 'target/surefire-reports/*.xml'
+                        }
+                    }
                 }
             }
         }
